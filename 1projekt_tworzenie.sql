@@ -68,6 +68,16 @@ status_zamowienia varchar(15) check (status_zamowienia in('w trakcie','zrealizow
   decyzja varchar(max)
  );
 
+GO
+create trigger Sprzedany  -- potrzebny do automatycznego ustawiania statusu egzemplarzy na niedostêpny jeœli jest on przypisany do jakiegoœ zamówienia
+on ZamowieniaEgzemplarz
+after insert
+as
+	update Egzemplarz
+	set status_ = 'niedostêpny'
+	where IDegzemplarz in (select IDEgzemplarz from inserted)
+GO
+
  insert into Klient values 
  ('adamnowak@wp.pl', 'qwerty123', 'Adam', 'Nowak', 'os. Zwyciêstwa 11/12131, Poznañ', '123456789'),
  ('jakkowalski@wp.pl', 'asdfg123', 'Jan', 'Kowalski', 'os. PrzyjaŸni 12/113, Poznañ', '123456788'),
@@ -133,9 +143,9 @@ status_zamowienia varchar(15) check (status_zamowienia in('w trakcie','zrealizow
  ('12','2017','1035','dostêpny')
 
  insert into Zamowienia values
- ('1','2021-12-12','2021-12-13','zrealizowane'),
+ ('1','2021-12-12',NULL,'w trakcie'),
  ('2','2021-12-12','2021-12-13','zrealizowane'),
- ('3','2021-12-12','2021-12-13','zrealizowane'),
+ ('3','2021-12-12','2021-12-19','zrealizowane'),
  ('2','2021-12-12','2021-12-13','zrealizowane')
 
  insert into ZamowieniaEgzemplarz values

@@ -9,14 +9,14 @@ if OBJECT_ID('DodajProducenta') IS NOT NULL drop proc DodajProducenta
 if OBJECT_ID('ModyfikujProducenta') IS NOT NULL drop proc ModyfikujProducenta
 if OBJECT_ID('NowaNazwaProducenta') IS NOT NULL drop proc NowaNazwaProducenta
 if OBJECT_ID('DodajProdukt') IS NOT NULL drop proc DodajProdukt
-if OBJECT_ID('ZmienNazweProducenta') IS NOT NULL drop trigger ZmienNazweProducenta
 if OBJECT_ID('DodajEgzemplarz') IS NOT NULL drop proc DodajEgzemplarz
-if OBJECT_ID('SprzedanyEgzemplarz') IS NOT NULL drop trigger SprzedanyEgzemplarz
+if OBJECT_ID('UsunietyEgzemplarz') IS NOT NULL drop trigger UsunietyEgzemplarz
 if OBJECT_ID('DodajZamowienie') IS NOT NULL drop proc DodajZamowienie
 if OBJECT_ID('ZmianaStatusuZamowienia') IS NOT NULL drop proc ZmianaStatusuZamowienia
 if OBJECT_ID('Reklamowanie') IS NOT NULL drop proc Reklamowanie
 if OBJECT_ID('ZmianaStatusuReklamacji') IS NOT NULL drop proc ZmianaStatusuReklamacji
 if OBJECT_ID('CzasRealizacjiZamowienia') IS NOT NULL drop function CzasRealizacjiZamowienia
+if OBJECT_ID('SumaZamowieniaa') IS NOT NULL drop function SumaZamowieniaa
 go
 
 create procedure DodajUzytkownika	--Zak³adanie konta
@@ -37,7 +37,8 @@ end catch
 GO
 exec DodajUzytkownika 'nowyktos@wp.pl','nowehaslo123','noweimie','nowenazwisko','nowy adres 123','111222333'
 GO
---select * from Klient
+select * from Klient
+GO
 
 create procedure ZmienEmail --zmiana adresu e-mail
   @staryemail varchar(30),
@@ -55,7 +56,8 @@ end catch
 GO
 exec ZmienEmail 'adamnowak@wp.pl','qwerty123','nowyemail@wp.pl'
 GO
---select * from Klient
+select * from Klient
+GO
 
 create procedure ZmienHaslo --zmiana hasla
   @email varchar(30),
@@ -71,9 +73,10 @@ begin catch
 	SELECT ERROR_NUMBER() AS 'NUMER B£ÊDU', ERROR_MESSAGE() AS 'KOMUNIKAT'
 end catch
 GO
-exec ZmienHaslo 'adamnowak@wp.pl','qwerty123','nowehaslo123' 
+exec ZmienHaslo 'jakkowalski@wp.pl','asdfg123','nowehaslo123' 
 GO
---select * from Klient
+select * from Klient
+GO
 
 create procedure ZmienDane --zmiana danych osobowych
   @email varchar(30),
@@ -94,9 +97,10 @@ begin catch
 	SELECT ERROR_NUMBER() AS 'NUMER B£ÊDU', ERROR_MESSAGE() AS 'KOMUNIKAT'
 end catch
 GO
-exec ZmienDane 'adamnowak@wp.pl','Adam','Nowak','os. Bezdromne 22', '987321312'
+exec ZmienDane 'andrzej123@wp.pl','Adam','Nowak','os. Bezdromne 22', '987321312'
 GO
---select * from Klient
+select * from Klient
+GO
 
 create procedure DodajProducenta	--Dodawanie producenta
  @nazwa  varchar(30),
@@ -114,7 +118,8 @@ end catch
 GO
 exec DodajProducenta'nowyproducent','nowyadres 12','nowyadresserwisu 123','tel. 123456789'
 GO
---select * from Producent
+select * from Producent
+GO
 
 create procedure ModyfikujProducenta	--Modyfikacja producenta
  @nazwa  varchar(30),
@@ -136,8 +141,8 @@ end catch
 GO
 exec ModyfikujProducenta 'ISM','nowyadres 123','nowy adres 1233','tel. 123123123'
 GO
---select * from Producent
---GO
+select * from Producent
+GO
 
 create procedure DodajProdukt	--Dodawanie produktu
  @nazwa varchar(30),
@@ -157,9 +162,9 @@ end catch
 GO
 exec DodajProdukt 'Laptop NOWY','ISM','1000GB HDD, 12GB ram, i7 6700k, gtx980','laptopy','4000','5000'
 GO
---select * from Produkt
---order by producent
---GO
+select * from Produkt
+order by producent
+GO
 
 create procedure DodajEgzemplarz	--Dodawanie egzemplarza
  @produkt int,
@@ -177,72 +182,97 @@ end catch
 GO
 exec DodajEgzemplarz 1,2015,2000,'dostêpny'
 GO
---select * from Egzemplarz
---GO
+select * from Egzemplarz
+GO
 
-create trigger SprzedanyEgzemplarz --usuwanie egzemplarzy (sprzedanie, wycofanie ze sprzeda¿y) 
+create trigger UsunietyEgzemplarz --usuwanie egzemplarzy (wycofanie ze sprzeda¿y) 
 on Egzemplarz
 instead of delete
 as
 	update Egzemplarz
 	set status_ = 'niedostêpny'
-	where IDegzemplarz in (select IDegzemplarz from deleted)
+	where IDegzemplarz = (select IDegzemplarz from deleted)
 GO
---select * from Egzemplarz
---GO
+delete from Egzemplarz where IDegzemplarz=10
+select * from Egzemplarz
+GO
 
 create procedure DodajZamowienie	--Dodawanie zamówienia
  @klient int,
- @data_zlozenia date,
- @data_zrealizowania date,
- @status_zamowienia varchar(15)
+ @data_zlozenia date
 AS
 begin try
 	insert into Zamowienia values
-	(@klient,@data_zlozenia,@data_zrealizowania,@status_zamowienia)
+	(@klient,@data_zlozenia,NULL,'w trakcie')
 end try
 begin catch
 	SELECT ERROR_NUMBER() AS 'NUMER B£ÊDU', ERROR_MESSAGE() AS 'KOMUNIKAT'
 end catch
 GO
-exec DodajZamowienie '1','2021-12-12','2021-12-13','zrealizowane'
+exec DodajZamowienie '1','2021-12-12'
 GO
---select * from Zamowienia
---GO
+select * from Zamowienia
+GO
 
 create procedure ZmianaStatusuZamowienia	--Zmiana statusu zamówienia
  @id  int,
- @status_zamowienia varchar(15)
+ @status_zamowienia varchar(15),
+ @data_zrealizowania date
 AS
 begin try
-	update Zamowienia set
-	status_zamowienia=@status_zamowienia
-	where IDzamowienie=@id
+	if @status_zamowienia ='zrealizowane'
+	begin	update Zamowienia set
+			data_zrealizowania=@data_zrealizowania,
+			status_zamowienia=@status_zamowienia
+			where IDzamowienie=@id
+	end
+	if @status_zamowienia ='anulowane'	
+	begin	update Zamowienia set
+			data_zrealizowania=@data_zrealizowania,
+			status_zamowienia=@status_zamowienia
+			where IDzamowienie=@id
+			update Egzemplarz set
+			status_='dostêpny'
+			where IDegzemplarz in (select IDegzemplarz from ZamowieniaEgzemplarz where IDzamowienie=@id)
+	end
 end try
 begin catch
 	SELECT ERROR_NUMBER() AS 'NUMER B£ÊDU', ERROR_MESSAGE() AS 'KOMUNIKAT'
 end catch
 GO
-exec ZmianaStatusuZamowienia 5,'w trakcie'
+exec ZmianaStatusuZamowienia 5,'zrealizowane','2021-12-13'
 GO
---select * from Zamowienia
---GO
+exec ZmianaStatusuZamowienia 1,'anulowane','2021-12-13'
+GO
+select * from Zamowienia
+GO
 
-create procedure ZamowienieIEgzemplarz --Procedura do przypisywania egzemplarzu do zamoówienia
-	@id_egz int,
-	@id_zam int
+create procedure ZamowienieIEgzemplarz --Procedura do przypisywania egzemplarzu do zamówienia
+	@id_zam int,
+	@id_egz int
 as
 begin try
-	insert into ZamowieniaEgzemplarz values
-	(@id_egz,@id_zam)
+	if 'dostêpny'=(select status_ from Egzemplarz where IDegzemplarz=@id_egz)
+	begin
+		if 'w trakcie'=(select status_zamowienia from Zamowienia where IDzamowienie=@id_zam)
+		begin
+			insert into ZamowieniaEgzemplarz values
+			(@id_zam,@id_egz)
+			delete from Egzemplarz where IDegzemplarz=@id_egz
+		end
+		else select 'B³¹d - nie mo¿esz dodawaæ egzemplarzy do anulowanych lub zrealizowanych zamówieñ ' as 'komunikat'
+	end
+	else select 'B³¹d - nie da siê zamówiæ niedostêpnych egzemplarzy ' as 'komunikat'
 end try
 begin catch
 	select ERROR_NUMBER() as 'NUMER B£ÊDU', ERROR_MESSAGE() as 'KOMUNIKAT'
 end catch
 go
-exec ZamowienieIEgzemplarz 2,3
+exec DodajZamowienie '1','2021-12-12'
+exec ZamowienieIEgzemplarz 6,30
 GO
---select * from ZamowieniaEgzemplarz
+select * from ZamowieniaEgzemplarz
+GO
 
 create procedure Reklamowanie --Dodawanie reklamacji
   @zamowienie int,
@@ -262,8 +292,8 @@ end catch
 go
 exec Reklamowanie 2,'2021-12-17','2021-12-27','odrzucone','Zalanie wod¹ produktów przez u¿ytkownika.','Odrzucenie reklamacji. Ten typ uszkodzenia nie jest pokryty gwarancj¹.'
 GO
---select * from Reklamacje
---GO
+select * from Reklamacje
+GO
 
 create procedure ZmianaStatusuReklamacji	--Zmiana statusu reklamacji (z dodaniem opisu)
  @id  int,
@@ -282,15 +312,40 @@ end catch
 GO
 exec ZmianaStatusuReklamacji 1,'w trakcie', 'decyzja'
 GO
---select * from Reklamacje
---GO
+select * from Reklamacje
+GO
 
-/*create function CzasRealizacjiZamowienia --funkcja
+create function CzasRealizacjiZamowienia --funkcja licz¹ca czas w jakim zosta³o zrealizowane zamówienie
         (@a int)
-        returns date
+        returns int
 as
 begin
-		DATEDIFF(DD,@pocz,@kon)
-		where 
+		declare @pocz date
+		set @pocz=(select data_zlozenia 
+		from Zamowienia 
+		where IDzamowienie=@a)
+		declare @kon date
+		set @kon=(select data_zrealizowania
+		from Zamowienia 
+		where IDzamowienie=@a)
         return DATEDIFF(DD,@pocz,@kon)
-end*/
+end
+GO
+select master.dbo.CzasRealizacjiZamowienia(3) as 'Czas realizacji w dniach'
+GO
+
+create function SumaZamowieniaa ---- oblicza ³¹czn¹ sumê zamówienia
+        (@s int)
+        returns int
+as
+begin
+	return (select SUM(cena_koncowa)
+	from (Produkt a join Egzemplarz b
+	on a.IDprodukt=b.produkt) join ZamowieniaEgzemplarz c on b.IDegzemplarz=c.IDEgzemplarz
+	where c.IDzamowienie=@s
+	group by IDzamowienie)
+end
+GO
+select dbo.SumaZamowieniaa(1) as 'Suma zamówienia'
+GO
+
